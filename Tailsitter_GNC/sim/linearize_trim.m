@@ -233,69 +233,69 @@ fprintf('Longitudinal sign: PASS\n');
 %%
 fprintf('Eigen values of A_aug-B_aug*K_long): ');disp(eig(A_aug - B_aug*K_long)); 
 
-%% Manually compute what SAS outputs at trim
-% At trim all lateral states should be near zero
-vy_trim  = 0;
-p_trim   = 0;
-r_trim   = 0;
-phi_trim = 0;
-del_a_trim = 0;
-del_T_trim = 0;
-
-
-u_sas = K_lat * [vy_trim; p_trim; r_trim; phi_trim; del_a_trim; del_T_trim];
-fprintf('SAS output at trim: delta_a=%.6f  dT=%.6f\n', u_sas(1), u_sas(2));
-
-%% Check what B_lat actually looks like
-fprintf('B_da (delta_a effect on lateral states):\n');
-disp(B_da)
-fprintf('B_dT (diff thrust effect on lateral states):\n');
-disp(B_dT)
-
-% Check norms
-fprintf('||B_da|| = %.4f\n', norm(B_da));
-fprintf('||B_dT|| = %.4f\n', norm(B_dT));
-
-%%
-vx_t = V0*cos(alpha0);
-vz_t = V0*sin(alpha0);
-theta_t = alpha0;
-q_t = 0;
-
-de_rate = K_long * [vx_t; vz_t; theta_t; q_t; d_trim];
-fprintf('delta_e_rate at trim = %.8f\n', de_rate);
-
-%% First compute and save trim values in workspace
-X_long_trim = [V0*cos(alpha0); V0*sin(alpha0); alpha0; 0; d_trim];
-fprintf('X_long_trim = '); disp(X_long_trim')
-
-%% What does K_long output at t=0?
-X_long_0 = [V0*cos(alpha0); V0*sin(alpha0); alpha0; 0];
-de_0 = K_long * (X_long_0 - X_long_trim);
-fprintf('de_rate at t=0: %.8f\n', de_0);
-% Should be exactly 0
-
-% If aircraft pitches up (theta increases), elevator should push nose down
-X_test = X_long_trim + [0; 0; 0.1; 0];   % theta increased by 0.1 rad
-de_test = K_long * (X_test - X_long_trim);
-fprintf('de_rate for nose-up: %.4f\n', de_test);
-% Negative = nose down correction = CORRECT
-% Positive = nose up amplification = WRONG, negate K_long
-
-%% If aircraft rolls right (phi increases), delta_a should correct left
-X_lat_test = [0; 0; 0; 0.1];   % phi increased by 0.1 rad
-da_test = K_lat * X_lat_test;
-fprintf('da_rate for roll-right: %.4f\n', da_test(1));
-% Should be negative to correct back
-
-%% Re-test with the gain in Simulink convention
-da_corrected = -1 * K_lat * [0; 0; 0; 0.1];
-fprintf('da_rate for roll-right (corrected): %.4f\n', da_corrected(1));
-% Must be negative
-
-de_corrected = -1 * K_long * ([0; 0; 0.1; 0]);
-fprintf('de_rate for nose-up (corrected): %.4f\n', de_corrected);
-% Must be negative
+% %% Manually compute what SAS outputs at trim
+% % At trim all lateral states should be near zero
+% vy_trim  = 0;
+% p_trim   = 0;
+% r_trim   = 0;
+% phi_trim = 0;
+% del_a_trim = 0;
+% del_T_trim = 0;
+% 
+% 
+% u_sas = K_lat * [vy_trim; p_trim; r_trim; phi_trim; del_a_trim; del_T_trim];
+% fprintf('SAS output at trim: delta_a=%.6f  dT=%.6f\n', u_sas(1), u_sas(2));
+% 
+% %% Check what B_lat actually looks like
+% fprintf('B_da (delta_a effect on lateral states):\n');
+% disp(B_da)
+% fprintf('B_dT (diff thrust effect on lateral states):\n');
+% disp(B_dT)
+% 
+% % Check norms
+% fprintf('||B_da|| = %.4f\n', norm(B_da));
+% fprintf('||B_dT|| = %.4f\n', norm(B_dT));
+% 
+% %%
+% vx_t = V0*cos(alpha0);
+% vz_t = V0*sin(alpha0);
+% theta_t = alpha0;
+% q_t = 0;
+% 
+% de_rate = K_long * [vx_t; vz_t; theta_t; q_t; d_trim];
+% fprintf('delta_e_rate at trim = %.8f\n', de_rate);
+% 
+% %% First compute and save trim values in workspace
+% X_long_trim = [V0*cos(alpha0); V0*sin(alpha0); alpha0; 0; d_trim];
+% fprintf('X_long_trim = '); disp(X_long_trim')
+% 
+% %% What does K_long output at t=0?
+% X_long_0 = [V0*cos(alpha0); V0*sin(alpha0); alpha0; 0];
+% de_0 = K_long * (X_long_0 - X_long_trim);
+% fprintf('de_rate at t=0: %.8f\n', de_0);
+% % Should be exactly 0
+% 
+% % If aircraft pitches up (theta increases), elevator should push nose down
+% X_test = X_long_trim + [0; 0; 0.1; 0];   % theta increased by 0.1 rad
+% de_test = K_long * (X_test - X_long_trim);
+% fprintf('de_rate for nose-up: %.4f\n', de_test);
+% % Negative = nose down correction = CORRECT
+% % Positive = nose up amplification = WRONG, negate K_long
+% 
+% %% If aircraft rolls right (phi increases), delta_a should correct left
+% X_lat_test = [0; 0; 0; 0.1];   % phi increased by 0.1 rad
+% da_test = K_lat * X_lat_test;
+% fprintf('da_rate for roll-right: %.4f\n', da_test(1));
+% % Should be negative to correct back
+% 
+% %% Re-test with the gain in Simulink convention
+% da_corrected = -1 * K_lat * [0; 0; 0; 0.1];
+% fprintf('da_rate for roll-right (corrected): %.4f\n', da_corrected(1));
+% % Must be negative
+% 
+% de_corrected = -1 * K_long * ([0; 0; 0.1; 0]);
+% fprintf('de_rate for nose-up (corrected): %.4f\n', de_corrected);
+% % Must be negative
 
 %%
 n    = size(out.x_out1, 1);
