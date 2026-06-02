@@ -34,7 +34,7 @@ X_trim = [0;0;-100; 0;0;theta0; V0*cos(alpha0);0;V0*sin(alpha0); ...
 U_trim = zeros(4,1);
 
 X0 = [0; 0; -100;
-      0; 0; theta0;
+      0; 0.1; theta0;
       V0*cos(alpha0); 0; V0*sin(alpha0);
       0; 0; 0;
       T0/2; T0/2;
@@ -141,8 +141,10 @@ Co_lat = ctrb(A_aug6,B_aug6);
 fprintf('Lateral controllability rank: %d (need 4)\n', rank(Co_lat));
 
 % Target poles: move unstable pair to LHP, keep stable ones
-target_lat = [-1+6.82i; -1-6.82i; -3.099; -0.5;  -20; -22];  % +2 DISTINCT actuator poles
-K_lat = place(A_aug6, B_aug6, target_lat);   % now 2x6 over [vy p r φ  δa  dT]
+% --- LATERAL (was: K_lat = place(A_aug6,B_aug6,target_lat)) ---
+Q_lat = diag([1 1 1 5 0.1 0.1]); % weights on [vy p r phi  delta_a delta_T]; phi weighted more
+R_lat = 10*eye(2);               % penalty on [da_rate; dT_rate]
+K_lat = lqr(A_aug6, B_aug6, Q_lat, R_lat);      % 2x6
 fprintf('\nK_lat (2x4):\n'); disp(K_lat)
 fprintf('Row 1 = [K_vy, K_p, K_r, K_phi, K_da]  → delta_a_rate\n')
 fprintf('Row 2 = [K_vy, K_p, K_r, K_phi, K_dT]  → dT_rate\n')
@@ -183,8 +185,10 @@ Co_long = ctrb(A_aug,B_aug);
 fprintf('Longitudinal controllability rank: %d (need 4)\n', rank(Co_long));
 
 % Target poles: improve phugoid damping, keep fast modes
-target_long = [-1.0+0.5i; -1.0-0.5i; -7.704; -19.511;  -25];  % +1 fast actuator pole
-K_long = place(A_aug, B_aug, target_long);     % now 1x5 over [vx vz θ q  δe]
+% --- LONGITUDINAL (was: K_long = place(A_aug,B_aug,target_long)) ---
+Q_long = diag([1 1 5 1 0.1]);   % weights on [vx vz theta q  delta_e]; theta weighted more
+R_long = 10;                     % penalty on delta_e_rate effort
+K_long = lqr(A_aug, B_aug, Q_long, R_long);     % 1
 
 fprintf('\nK_long (1x5): [vx vz theta q delta_e]\n'); disp(K_long)
 fprintf('Maps [vx, vz, theta, q] → delta_e_rate\n')
@@ -321,7 +325,31 @@ title('Trajectory — Closed Loop Lateral SAS');
 legend; grid on; axis equal; view(45,30);
 
 
-%% Results with EKF filter on 
+%% ===== GROUND-TRUTH closed loop (no Simulink) =====
+X0p = X_trim;  X0p(6) = X0p(6) + deg2rad(5);  X0p(5) = X0p(5) + deg2rad(5);
+[t,Xs] = ode45(@(t,X) rigid_body(t,X, sas_cmd(X,K_long,K_lat,X_long_trim,X_lat_trim), P), [0 15], X0p);
+figure;
+subplot(3,1,1); plot(t,rad2deg(Xs(:,6))); ylabel('\theta [deg]');
+subplot(3,1,2); plot(t,rad2deg(Xs(:,5))); ylabel('\phi [deg]');
+subplot(3,1,3); plot(t,-Xs(:,3)); ylabel('alt [m]'); xlabel('t [s]');
+sgtitle('MATLAB ground-truth closed loop');
+fprintf('max|theta|=%.2f  max|phi|=%.2f deg\n', max(abs(Xs(:,6)))*180/pi, max(abs(Xs(:,5)))*180/pi);
+
+function U = sas_cmd(X, K_long, K_lat, X_long_trim, X_lat_trim)
+  de=(X(15)+X(16))/2; da=(X(15)-X(16))/2; dT=(X(13)-X(14))/2;
+  de_rate = -K_long * ([X(7);X(9);X(6);X(11);de] - X_long_trim);
+  ul      = -K_lat  * ([X(8);X(10);X(12);X(5);da;dT] - X_lat_trim);
+  U = [0.5*ul(2); -0.5*ul(2); de_rate+ul(1); de_rate-ul(1)];   % [T1dot T2dot d1dot d2dot]
+end
+
+pk_d = 0; pk_T = 0;
+for k = 1:numel(t)
+    U = sas_cmd(Xs(k,:)', K_long, K_lat, X_long_trim, X_lat_trim);
+    pk_T = max(pk_T, max(abs(U(1:2))));   % thrust rates
+    pk_d = max(pk_d, max(abs(U(3:4))));   % elevon rates
+end
+fprintf('peak elevon rate = %.3f rad/s (limit 1.0), thrust rate = %.3f N/s (limit 10)\n', pk_d, pk_T);
+assert(pk_d < 1.0 && pk_T < 10, 'CONTROL SATURATES — increase R');
 
 %%
 n    = size(out.x_out2, 1);
