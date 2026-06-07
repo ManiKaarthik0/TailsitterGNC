@@ -1,4 +1,4 @@
-function [x, P] = ekf_att_bias(x, P, z_gyro, z_accel, dt, Q, R_accel)
+function [x, P] = ekf_att_bias(x, P, z_gyro, z_accel, z_mag, dt, Q, R_accel)
 % 6-STATE ATTITUDE + GYRO-BIAS EKF (gyro as INPUT)
 %   x = [psi; phi; theta; bx; by; bz]
     g = 9.81;
@@ -57,4 +57,15 @@ function [x, P] = ekf_att_bias(x, P, z_gyro, z_accel, dt, Q, R_accel)
     x = x_pred + K_a*y_a;
     P = (eye(6) - K_a*H_a)*P_pred;
     P = (P + P')/2;                     % keep symmetric
+    %% ── UPDATE: MAGNETOMETER (heading) ───────────────────
+    
+    H_m = zeros(1,6);  H_m(1) = 1;
+    R_m = (deg2rad(1))^2;
+    y_m = z_mag - x(1);          % <-- z_mag, the argument
+    S_m = H_m*P*H_m' + R_m;
+    K_m = P*H_m'/S_m;                       % 6x1 gain — note its bz row is nonzero!
+
+    x   = x + K_m*y_m;
+    P   = (eye(6) - K_m*H_m)*P;
+    P   = (P + P')/2;
 end

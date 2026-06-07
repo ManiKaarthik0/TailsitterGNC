@@ -1,7 +1,7 @@
 % TEST_EKF  Validate EKF on synthetic trajectory before Simulink integration
 addpath('/FixedwingGNC/Tailsitter_GNC/dynamics/', '/FixedwingGNC/Tailsitter_GNC/params/');
 run('params.m');
-
+%%
 dt = 0.01;    % 100 Hz
 T  = 10;
 N  = T/dt;
@@ -43,8 +43,8 @@ Q = blkdiag(1e-5*eye(3), 1e-7*eye(3));   % [attitude ; bias random-walk]
 R_accel = (0.02^2)*eye(3);
 for k = 1:N
     Xk = Xtrue(k,:).';
-    [zg, za] = imu_simulate(Xk, dt);
-    [x, P]        = ekf_att_bias(x, P, zg, za, dt, Q, R_accel);
+    [zg, za, zm] = imu_simulate(Xk, dt);
+    [x, P]       = ekf_att_bias(x, P, zg, za, zm, dt, Q, R_accel);
     est(:,k)      = x(1:3);    % attitude
     est_bias(:,k) = x(4:6);    % bias   <-- log it here
 end
