@@ -44,7 +44,7 @@ function [X_est, P_est] = ekf_attitude(X_est, P_est, z_gyro, z_accel, dt, Q, R_g
 
     % Row 3: dtheta/d(...)
     F(3,2) = dt * (wx*sth*(1/cph^2) - wz*cth*(1/cph^2));  % dtheta/dphi — fixed
-    F(3,3) = dt * (wx*cth*tph - wz*sth*tph);               % dtheta/dtheta
+    F(3,3) = 1 + dt * (wx*cth*tph + wz*sth*tph);               % dtheta/dtheta
     F(3,4) = dt * (sth*tph);                                % dtheta/dwx
     F(3,5) = dt * 1;                                        % dtheta/dwy
     F(3,6) = dt * (-cth*tph);                               % dtheta/dwz

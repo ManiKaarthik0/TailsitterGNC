@@ -1,4 +1,4 @@
-function [z_gyro, z_accel] = imu_simulate(X_true, dt)
+function [z_gyro, z_accel, z_mag] = imu_simulate(X_true, dt)
 % IMU_SIMULATE  Simulate noisy IMU from true 16-state vector
 %
 % X_true follows rigid_body.m order:
@@ -18,7 +18,10 @@ function [z_gyro, z_accel] = imu_simulate(X_true, dt)
     %% Gyro noise parameters
     gyro_noise_std = 0.005;
     gyro_bias      = [0.003; -0.002; 0.001];
-
+    
+    mag_noise_std = deg2rad(1);
+    z_mag = X_true(4) + mag_noise_std*randn;   % heading measurement (true psi + noise)
+    
     %% Accel noise parameters
     accel_noise_std = 0.02;
 
