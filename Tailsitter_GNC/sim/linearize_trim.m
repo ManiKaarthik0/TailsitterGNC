@@ -352,24 +352,81 @@ fprintf('peak elevon rate = %.3f rad/s (limit 1.0), thrust rate = %.3f N/s (limi
 assert(pk_d < 1.0 && pk_T < 10, 'CONTROL SATURATES — increase R');
 
 %%
-n    = size(out.x_out2, 1);
-tout = linspace(0, 15, n)';
+% To Workspace logs as timeseries -> use .Data / .Time
+est = out.ekf_outputs.Data;
+t_e = out.ekf_outputs.Time;
 
-figure;
-subplot(4,1,1); plot(tout, rad2deg(out.x_out2(:,6)));  ylabel('\theta [deg]'); title('Pitch');
-subplot(4,1,2); plot(tout, rad2deg(out.x_out2(:,5)));  ylabel('\phi [deg]');  title('Roll');
-subplot(4,1,3); plot(tout, rad2deg(out.x_out2(:,4)));  ylabel('\psi [deg]');  title('Yaw');
-subplot(4,1,4); plot(tout, -out.x_out2(:,3));           ylabel('alt [m]');    title('Altitude');
-xlabel('t [s]');
-sgtitle('Closed Loop — Lateral SAS Active - EKF Estimates');
+tru = out.x_out1;      % already an array
 
+% Create time vector
+Ts = 0.01;             % <-- your simulation sample time
+t_t = (0:size(tru,1)-1)'*Ts;
+
+b_true = [0.003 -0.002 0.001];
+
+% --- EKF attitude vs truth ---
 figure;
-x =  out.x_out2(:,1);
-y =  out.x_out2(:,2);
-z = -out.x_out2(:,3);
-plot3(x, y, z, 'b', 'LineWidth', 1.5); hold on;
-plot3(x(1), y(1), z(1), 'go', 'MarkerSize', 10, 'DisplayName', 'Start');
-plot3(x(end), y(end), z(end), 'rx', 'MarkerSize', 10, 'DisplayName', 'End');
-xlabel('x [m]'); ylabel('y [m]'); zlabel('alt [m]');
-title('Trajectory — Closed Loop Lateral SAS - with EKF estimates');
-legend; grid on; axis equal; view(45,30);
+lab = {'\psi (yaw)','\phi (roll)','\theta (pitch)'};
+for i = 1:3
+    subplot(3,1,i);
+    plot(t_t, (tru(:,3+i)), 'b'); hold on;   % TRUE (cols 4,5,6)
+    plot(t_e, (est(:,i)),   'r--');          % EKF estimate
+    ylabel([lab{i} ' [deg]']); grid on;
+    if i==1, legend('truth','EKF'); end
+end
+sgtitle('EKF attitude: estimate vs truth');
+
+% --- Gyro bias vs truth (rad/s, no rad2deg) ---
+figure;
+lab2 = {'b_x','b_y','b_z'};
+for i = 1:3
+    subplot(3,1,i);
+    plot(t_e, est(:,3+i), 'b'); hold on;
+    yline(b_true(i), 'r--');
+    ylabel([lab2{i} ' [rad/s]']); grid on;
+end
+sgtitle('Estimated gyro bias vs truth');
+
+%%
+function [D, T] = getlog(v)
+    if isa(v,'timeseries')
+        D = v.Data;  T = v.Time;
+    elseif isa(v,'Simulink.SimulationData.Dataset')
+        e = v{1};  D = e.Values.Data;  T = e.Values.Time;
+    elseif isstruct(v)                      % "Structure With Time"
+        D = v.signals.values;  T = v.time;
+    else                                    % plain array
+        D = v;  T = (0:size(v,1)-1)'*0.01;  % assumes 100 Hz logging
+    end
+end
+
+
+
+%%
+% ---- robustly pull [data, time] from any To Workspace format ----
+[est, t_e] = getlog(out.ekf_outputs);   % [N x 6]
+[tru, t_t] = getlog(out.x_out1);        % [M x 16]
+b_true = [0.003 -0.002 0.001];
+
+% --- EKF attitude vs truth ---
+figure;
+lab = {'\psi (yaw)','\phi (roll)','\theta (pitch)'};
+for i = 1:3
+    subplot(3,1,i);
+    plot(t_t, rad2deg(tru(:,3+i)), 'b'); hold on;   % TRUE attitude (cols 4,5,6)
+    plot(t_e, rad2deg(est(:,i)),   'r--');          % EKF estimate
+    ylabel([lab{i} ' [deg]']); grid on;
+    if i==1, legend('truth','EKF'); end
+end
+sgtitle('EKF attitude: estimate vs truth');
+
+% --- gyro bias vs truth (rad/s) ---
+figure;
+lab2 = {'b_x','b_y','b_z'};
+for i = 1:3
+    subplot(3,1,i);
+    plot(t_e, est(:,3+i), 'b'); hold on;
+    yline(b_true(i), 'r--');
+    ylabel([lab2{i} ' [rad/s]']); grid on;
+end
+sgtitle('Estimated gyro bias vs truth');
