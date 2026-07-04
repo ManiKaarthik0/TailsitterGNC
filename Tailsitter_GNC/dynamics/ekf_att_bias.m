@@ -55,8 +55,11 @@ function [x, P] = ekf_att_bias(x, P, z_gyro, z_accel, z_mag, dt, Q, R_accel)
     K_a = P_pred*H_a'/S_a;              % gain has nonzero BIAS rows -> bias gets corrected
 
     x = x_pred + K_a*y_a;
-    P = (eye(6) - K_a*H_a)*P_pred;
+    I_KH = eye(6) - K_a*H_a;
+    % P = (eye(6) - K_a*H_a)*P_pred;
+    P   = I_KH*P_pred*I_KH' + K_a*R_accel*K_a';   % Joseph form
     P = (P + P')/2;                     % keep symmetric
+    
     %% ── UPDATE: MAGNETOMETER (heading) ───────────────────
     
     H_m = zeros(1,6);  H_m(1) = 1;
@@ -66,6 +69,8 @@ function [x, P] = ekf_att_bias(x, P, z_gyro, z_accel, z_mag, dt, Q, R_accel)
     K_m = P*H_m'/S_m;                       % 6x1 gain — note its bz row is nonzero!
 
     x   = x + K_m*y_m;
-    P   = (eye(6) - K_m*H_m)*P;
+    I_Km = eye(6) - K_m*H_m;
+    P   = I_Km*P*I_Km' + K_m*R_m*K_m';             % Joseph form
+    % P   = (eye(6) - K_m*H_m)*P;
     P   = (P + P')/2;
 end

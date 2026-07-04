@@ -83,3 +83,11 @@ function U = sas_src(X, phi, theta, p, q, r, K_lat, K_long, X_long_trim, X_lat_t
     ul=-K_lat*([vy;p;r;phi;da;dT]-X_lat_trim);
     U=[0.5*ul(2); -0.5*ul(2); de_rate+ul(1); de_rate-ul(1)];
 end
+
+%%
+% run either version for, say, 5000 steps with a very small R (aggressive trust)
+% then:
+e = eig(P);
+fprintf('min eigenvalue of P = %.3e\n', min(e));
+% old formula: can go slightly negative under stress
+% Joseph form: always >= 0
